@@ -205,6 +205,10 @@ class PhotoAdmin(admin.ModelAdmin):
   
   ```
 
+---
+
+#### 9.2 seed_everything and seed_users
+
 * **users\management\commands\seed_users.py**
 
   ```python
@@ -228,6 +232,328 @@ class PhotoAdmin(admin.ModelAdmin):
           seeder.add_entity(User, number, {"is_staff": False, "is_superuser": False})
           seeder.execute()
           self.stdout.write(self.style.SUCCESS(f"{number} users created!"))
+  ```
+
+---
+
+#### 9.3 seed_rooms part One
+
+* **rooms\management\commands\seed_rooms.py**
+
+  ```python
+  import random
+  from django.core.management.base import BaseCommand
+  from django_seed import Seed
+  from rooms import models as room_models
+  from users import models as user_models
+  
+  
+  class Command(BaseCommand):
+  
+      help = "This command creates rooms."
+  
+      def add_arguments(self, parser):
+          parser.add_argument(
+              "--number", default=1, type=int, help="How many users you want to create"
+          )
+  
+      def handle(self, *args, **options):
+          number = options.get("number")
+          seeder = Seed.seeder()
+          all_users = user_models.User.objects.all()
+          room_types = room_models.RoomType.objects.all()
+          seeder.add_entity(
+              room_models.Room,
+              number,
+              {
+                  "name": lambda x: seeder.faker.address(),
+                  "host": lambda x: random.choice(all_users),
+                  "room_type": lambda x: random.choice(room_types),
+                  "guests": lambda x: random.randint(1, 20),
+                  "price": lambda x: random.randint(1, 300),
+                  "beds": lambda x: random.randint(1, 5),
+                  "bedrooms": lambda x: random.randint(1, 5),
+                  "baths": lambda x: random.randint(1, 5),
+              },
+          )
+          seeder.execute()
+          self.stdout.write(self.style.SUCCESS(f"{number} rooms created!"))
+  ```
+
+---
+
+#### 9.4 seed_rooms part Two
+
+* **rooms\management\commands\seed_rooms.py**
+
+  ```python
+  import random
+  from django.core.management.base import BaseCommand
+  from django.contrib.admin.utils import flatten
+  from django_seed import Seed
+  from rooms import models as room_models
+  from users import models as user_models
+  
+  
+  class Command(BaseCommand):
+  
+      help = "This command creates rooms."
+  
+      def add_arguments(self, parser):
+          parser.add_argument(
+              "--number", default=1, type=int, help="How many users you want to create"
+          )
+  
+      def handle(self, *args, **options):
+          number = options.get("number")
+          seeder = Seed.seeder()
+          all_users = user_models.User.objects.all()
+          room_types = room_models.RoomType.objects.all()
+          seeder.add_entity(
+              room_models.Room,
+              number,
+              {
+                  "name": lambda x: seeder.faker.address(),
+                  "host": lambda x: random.choice(all_users),
+                  "room_type": lambda x: random.choice(room_types),
+                  "guests": lambda x: random.randint(1, 20),
+                  "price": lambda x: random.randint(1, 300),
+                  "beds": lambda x: random.randint(1, 5),
+                  "bedrooms": lambda x: random.randint(1, 5),
+                  "baths": lambda x: random.randint(1, 5),
+              },
+          )
+          created_photos = seeder.execute()
+          created_clean = flatten(list(created_photos.values()))
+          for pk in created_clean:
+              room = room_models.Room.objects.get(pk=pk)
+              for i in range(3, random.randint(10, 17)):
+                  room_models.Photo.objects.create(
+                      caption=seeder.faker.sentence(),
+                      room=room,
+                      file=f"room_photos/{random.randint(1, 31)}.webp",
+                  )
+          self.stdout.write(self.style.SUCCESS(f"{number} rooms created!"))
+  ```
+
+---
+
+#### 9.5 seed_rooms part Three
+
+* **rooms\management\commands\seed_rooms.py**
+
+  ```python
+  import random
+  from django.core.management.base import BaseCommand
+  from django.contrib.admin.utils import flatten
+  from django_seed import Seed
+  from rooms import models as room_models
+  from users import models as user_models
+  
+  
+  class Command(BaseCommand):
+  
+      help = "This command creates rooms."
+  
+      def add_arguments(self, parser):
+          parser.add_argument(
+              "--number", default=1, type=int, help="How many users you want to create"
+          )
+  
+      def handle(self, *args, **options):
+          number = options.get("number")
+          seeder = Seed.seeder()
+          all_users = user_models.User.objects.all()
+          room_types = room_models.RoomType.objects.all()
+          seeder.add_entity(
+              room_models.Room,
+              number,
+              {
+                  "name": lambda x: seeder.faker.address(),
+                  "host": lambda x: random.choice(all_users),
+                  "room_type": lambda x: random.choice(room_types),
+                  "guests": lambda x: random.randint(1, 20),
+                  "price": lambda x: random.randint(1, 300),
+                  "beds": lambda x: random.randint(1, 5),
+                  "bedrooms": lambda x: random.randint(1, 5),
+                  "baths": lambda x: random.randint(1, 5),
+              },
+          )
+          created_photos = seeder.execute()
+          created_clean = flatten(list(created_photos.values()))
+          amenities = room_models.Amenity.objects.all()
+          facilities = room_models.Facility.objects.all()
+          rules = room_models.HouseRule.objects.all()
+          for pk in created_clean:
+              room = room_models.Room.objects.get(pk=pk)
+              for i in range(3, random.randint(10, 30)):
+                  room_models.Photo.objects.create(
+                      caption=seeder.faker.sentence(),
+                      room=room,
+                      file=f"room_photos/{random.randint(1, 31)}.webp",
+                  )
+              for a in amenities:
+                  magic_number = random.randint(0, 15)
+                  if magic_number % 2 == 0:
+                      room.amenities.add(a)
+  
+              for f in facilities:
+                  magic_number = random.randint(0, 15)
+                  if magic_number % 2 == 0:
+                      room.facilities.add(f)
+  
+              for r in rules:
+                  magic_number = random.randint(0, 15)
+                  if magic_number % 2 == 0:
+                      room.house_rules.add(r)
+  
+          self.stdout.write(self.style.SUCCESS(f"{number} rooms created!"))
+  ```
+
+---
+
+#### 9.6 seed_reviews
+
+* **reviews\management\commands\seed_reviews.py**
+
+  ```python
+  import random
+  from django.core.management.base import BaseCommand
+  from django_seed import Seed
+  from reviews import models as review_models
+  from users import models as user_models
+  from rooms import models as room_models
+  
+  
+  class Command(BaseCommand):
+  
+      help = "This command creates reviews"
+  
+      def add_arguments(self, parser):
+          parser.add_argument(
+              "--number", default=2, type=int, help="How many reviews you want to create"
+          )
+  
+      def handle(self, *args, **options):
+          number = options.get("number")
+          seeder = Seed.seeder()
+          users = user_models.User.objects.all()
+          rooms = room_models.Room.objects.all()
+          seeder.add_entity(
+              review_models.Review,
+              number,
+              {
+                  "accuracy": lambda x: random.randint(0, 6),
+                  "communication": lambda x: random.randint(0, 6),
+                  "cleanliness": lambda x: random.randint(0, 6),
+                  "location": lambda x: random.randint(0, 6),
+                  "check_in": lambda x: random.randint(0, 6),
+                  "value": lambda x: random.randint(0, 6),
+                  "room": lambda x: random.choice(rooms),
+                  "user": lambda x: random.choice(users),
+              },
+          )
+          seeder.execute()
+          self.stdout.write(self.style.SUCCESS(f"{number} reviews created!"))
+  ```
+
+---
+
+#### 9.7 seed_lists
+
+* **lists\management\commands\seed_lists.py**
+
+  ```python
+  import random
+  from django.core.management.base import BaseCommand
+  from django.contrib.admin.utils import flatten
+  from django_seed import Seed
+  from lists import models as list_models
+  from users import models as user_models
+  from rooms import models as room_models
+  
+  
+  NAME = "lists"
+  
+  
+  class Command(BaseCommand):
+  
+      help = f"This command creates {NAME}"
+  
+      def add_arguments(self, parser):
+          parser.add_argument(
+              "--number", default=2, type=int, help=f"How many {NAME} you want to create"
+          )
+  
+      def handle(self, *args, **options):
+          number = options.get("number")
+          seeder = Seed.seeder()
+          users = user_models.User.objects.all()
+          rooms = room_models.Room.objects.all()
+          seeder.add_entity(
+              list_models.List, number, {"user": lambda x: random.choice(users)}
+          )
+  
+          created = seeder.execute()
+          cleaned = flatten(list(created.values()))
+          for pk in cleaned:
+              list_model = list_models.List.objects.get(pk=pk)
+              to_add = rooms[random.randint(0, 5) : random.randint(6, 30)]
+              list_model.rooms.add(*to_add)
+  
+          self.stdout.write(self.style.SUCCESS(f"{number} {NAME} created!"))
+  ```
+
+---
+
+#### 9.8 seed_reservations
+
+* **reviews\management\commands\seed_reservations.py**
+
+  ```python
+  import random
+  from datetime import datetime, timedelta
+  from django.core.management.base import BaseCommand
+  from django.contrib.admin.utils import flatten
+  from django_seed import Seed
+  from reservations import models as reservation_models
+  from users import models as user_models
+  from rooms import models as room_models
+  
+  
+  NAME = "reservations"
+  
+  
+  class Command(BaseCommand):
+  
+      help = f"This command creates {NAME}"
+  
+      def add_arguments(self, parser):
+          parser.add_argument(
+              "--number", default=2, type=int, help=f"How many {NAME} you want to create"
+          )
+  
+      def handle(self, *args, **options):
+          number = options.get("number")
+          seeder = Seed.seeder()
+          users = user_models.User.objects.all()
+          rooms = room_models.Room.objects.all()
+          seeder.add_entity(
+              reservation_models.Reservation,
+              number,
+              {
+                  "status": lambda x: random.choice(["pending", "confirmed", "cancled"]),
+                  "guest": lambda x: random.choice(users),
+                  "room": lambda x: random.choice(rooms),
+                  "check_in": lambda x: datetime.now(),
+                  "check_out": lambda x: datetime.now()
+                  + timedelta(days=random.randint(3, 25)),
+              },
+          )
+  
+          seeder.execute()
+  
+          self.stdout.write(self.style.SUCCESS(f"{number} {NAME} created!"))
   ```
 
   
