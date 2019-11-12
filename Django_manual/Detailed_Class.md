@@ -556,4 +556,255 @@ class PhotoAdmin(admin.ModelAdmin):
           self.stdout.write(self.style.SUCCESS(f"{number} {NAME} created!"))
   ```
 
+---
+
+#### 10.0 Introduction to Urls and Views
+
+* **config\urls.py**
+
+  ```python
+  from django.contrib import admin
+  from django.urls import path, include
+  from django.conf import settings
+  from django.conf.urls.static import static
   
+  urlpatterns = [
+      path("", include("core.urls", namespace="core")),
+      path("admin/", admin.site.urls),
+  ]
+  
+  if settings.DEBUG:
+      urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+  ```
+
+* **core\urls.py**
+
+  ```python
+  from django.urls import path
+  from rooms import views as room_views
+  
+  app_name = "core"
+  
+  urlpatterns = [
+      path("", room_views.all_rooms, name="home"),
+  ]
+  ```
+
+---
+
+#### 10.1 HttpResponse and render
+
+* **rooms\views.py**
+
+  ```python
+  from django.shortcuts import render
+  
+  
+  def all_rooms(request):
+      return render(request, "all_rooms")
+  ```
+
+* **참고**
+
+  ```python
+  from datetime import datetime
+  from django.shortcuts import render
+  from django.http import HttpResponse
+  
+  
+  def all_rooms(request):
+      now = datetime.now()
+      return HttpResponse(content=f"<h1>{now}</h1>")
+  ```
+
+---
+
+#### 10.2 Introduction to Django Templates
+
+* **airbnb-clone\templates:** 'templates' 폴더 생성
+
+* **templates\all_rooms.html:** 'templates' 폴더에 'all_rooms.html' 파일 생성
+
+* **rooms\views.py**
+
+  ```python
+  from datetime import datetime
+  from django.shortcuts import render
+  
+  
+  def all_rooms(request):
+      now = datetime.now()
+      hungry = True
+      return render(request, "all_rooms.html", context={"now": now, "hungry": hungry})
+  ```
+
+* **airbnb-clone\templates.html**
+
+  ```html
+  <h1>Hello!</h1>
+  <h4>The time right now is: {{ now }}</h4>
+  
+  <h6>
+    {% if hungry %} I'm hungry {% else %} I'm Okay {% endif %}
+  </h6>
+  ```
+
+---
+
+#### 10.3 Extending Templates part One
+
+* **views.py:** 'html' 파일 이름은 'templates' 폴더의 파일명과 동일해야 함
+
+  * **아래 코드 예시: 코드 속 "all_rooms.html"** 과 사진 속 **"all_rooms.html"** 파일
+
+  ```python
+  from django.shortcuts import render
+  from . import models
+  
+  
+  def all_rooms(request):
+      all_rooms = models.Room.objects.all()
+      return render(request, "all_rooms.html", context={"rooms": all_rooms})
+  ```
+
+  <br>
+
+  ![image](https://user-images.githubusercontent.com/42408554/68644977-04909080-055a-11ea-92e4-3547abba892c.png)
+
+  <br>
+
+* **views.py:** 함수명은 **'url.py'** 속 이름과 같아야 함
+
+  * **아래 코드 예시:** **'rooms\views.py'** 파일 안의 ```def all_rooms()```
+
+  ```python
+  from django.shortcuts import render
+  from . import models
+  
+  
+  def all_rooms(request):
+      all_rooms = models.Room.objects.all()
+      return render(request, "home.html", context={"rooms": all_rooms})
+  ```
+
+  * **아래 코드 예시: 'core\urls.py'** 파일 안의 ```all_rooms```
+
+  ```python
+  from django.urls import path
+  from rooms import views as room_views
+  
+  app_name = "core"
+  
+  urlpatterns = [
+      path("", room_views.all_rooms, name="home"),
+  ]
+  ```
+
+* **'templates'** 폴더에 **'base.html' 파일 생성** (사진 참고)
+*  **'rooms'**라는 하위 폴더 생성 후, **'home.html'** 파일을 이동 (사진 참고)
+
+<br>
+
+![image](https://user-images.githubusercontent.com/42408554/68647850-3574c380-0562-11ea-9856-b0c4069eaeea.png)
+
+<br>
+
+* **'base.html' 코드**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+  </head>
+  <body>
+    &copy; Nbnb
+  </body>
+</html>
+```
+
+* **'views.py' 코드**
+
+```python
+from django.shortcuts import render
+from . import models
+
+
+def all_rooms(request):
+    all_rooms = models.Room.objects.all()
+    return render(request, "rooms/home.html", context={"rooms": all_rooms})
+```
+
+---
+
+#### 10.4 Extending Templates part Two and Includes
+
+* **'templates'** 폴더 안에 **'partials'** 폴더를 만든 후, **'header.html'** 파일과 **'footer.html'** 파일을 생성 (사진 참고)
+
+<br>
+
+![image](https://user-images.githubusercontent.com/42408554/68649008-09a70d00-0565-11ea-83ad-df3b016a346b.png)
+
+<br>
+
+* **'header.html'** 코드
+
+  ```html
+  <header>
+    <a href="/">Ybnb</a>
+    <ul>
+      <li><a href="#">Login</a></li>
+    </ul>
+  </header>
+  ```
+
+- **'footer.html' 코드**
+
+  ```html
+  <footer>
+    &copy; Ybnb
+  </footer>
+  ```
+
+* **'base.html' 코드**
+
+  ```html
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+      <title>{% block page_name %}{% endblock page_name %} | Ybnb</title>
+    </head>
+    <body>
+      {% include "partials/header.html" %}
+  
+      {% block content %} {% endblock %}
+  
+      {% include "partials/footer.html" %}
+    </body>
+  </html>
+  ```
+
+* **'home.html' 코드**
+
+  ```html
+  {% extends "base.html" %}
+  
+  <!-- page_name -->
+  {% block page_name %} Home {% endblock page_name %}
+  
+  <!-- room contents -->
+  {% block content %}
+      {% for room in rooms %}
+      <h1>{{ room.name }} / {{ room.price }}</h1>
+      {% endfor %}
+  {% endblock content %}
+  ```
+
+---
+
