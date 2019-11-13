@@ -808,3 +808,345 @@ def all_rooms(request):
 
 ---
 
+#### 11.0 HomeView Intro
+
+---
+
+#### 11.1 Pagination with Limit and Offset
+
+* **rooms\view.py**
+
+  ```python
+  from django.shortcuts import render
+  from . import models
+  
+  
+  def all_rooms(request):
+      page = int(request.GET.get("page", 1))
+      page_size = 10
+      limit = page_size * page
+      offset = limit - page_size
+      all_rooms = models.Room.objects.all()[offset:limit]
+      return render(request, "rooms/home.html", context={"rooms": all_rooms})
+  ```
+
+---
+
+#### 11.2 Pages List Navigation
+
+* **rooms\view.py**
+
+  ```python
+  from math import ceil
+  from django.shortcuts import render
+  from . import models
+  
+  
+  def all_rooms(request):
+      page = request.GET.get("page", 1)
+      page = int(page or 1)
+      page_size = 10
+      limit = page_size * page
+      offset = limit - page_size
+      all_rooms = models.Room.objects.all()[offset:limit]
+      page_count = ceil(models.Room.objects.count() / page_size)
+      return render(
+          request,
+          "rooms/home.html",
+          context={
+              "rooms": all_rooms,
+              "page": page,
+              "page_count": page_count,
+              "page_range": range(1, page_count),
+          },
+      )
+  
+  ```
+
+* **templates\rooms\home.html**
+
+  ```html
+  {% extends "base.html" %}
+  
+  <!-- page_name -->
+  {% block page_name %} Home {% endblock page_name %}
+  
+  <!-- room contents -->
+  {% block content %}
+      {% for room in rooms %}
+      <h1>{{ room.name }} / {{ room.price }}</h1>
+      {% endfor %}
+  
+      <h5>Page {{page}} of {{page_count}}</h5>
+  
+      {% for page in page_range %}
+          <a href="?page={{page}}">{{page}}</a>
+      {% endfor %}
+  
+  {% endblock content %}
+  ```
+
+---
+
+#### 11.3 Next Previous Page Navigation
+
+* **templates\rooms\home.html**
+
+  ```html
+  {% extends "base.html" %}
+  
+  <!-- page_name -->
+  {% block page_name %} Home {% endblock page_name %}
+  
+  <!-- room contents -->
+  {% block content %}
+  
+      {% for room in rooms %}
+      <h1>{{ room.name }} / {{ room.price }}</h1>
+      {% endfor %}
+  
+      <h5>
+      {% if page is not 1  %}
+          <a href="?page={{page|add:-1}}">Previous</a>
+      {% endif %}
+      Page {{page}} of {{page_count}}
+      
+      {% if not page == page_count %}
+          <a href="?page={{page|add:+1}}">Next</a>
+      {% endif %}
+      </h5>
+  
+  {% endblock content %}
+  ```
+
+---
+
+#### 11.4 Using Django Paginator
+
+* **rooms\view.py**
+
+  ```python
+  from math import ceil
+  from django.shortcuts import render
+  from django.core.paginator import Paginator
+  from . import models
+  
+  
+  def all_rooms(request):
+      page = request.GET.get("page")
+      room_list = models.Room.objects.all()
+      paginator = Paginator(room_list, 10)
+      rooms = paginator.get_page(page)
+      return render(request, "rooms/home.html", context={"rooms": rooms})
+  ```
+
+* **templates\rooms\home.html**
+
+```html
+{% extends "base.html" %}
+
+<!-- page_name -->
+{% block page_name %} Home {% endblock page_name %}
+
+<!-- room contents -->
+{% block content %}
+
+    {% for room in rooms.object_list %}
+    <h1>{{ room.name }} / {{ room.price }}</h1>
+    {% endfor %}
+
+    <h5>
+    {% if rooms.has_previous %}
+        <a href="?page={{rooms.number|add:-1}}">Previous</a>
+    {% endif %}
+    
+    Page {{rooms.number}} of {{rooms.paginator.num_pages}}
+
+    {% if rooms.has_next %}
+        <a href ="?page={{rooms.number|add:+1}}">Next</a>
+    {% endif %}
+    </h5>
+
+{% endblock content %}
+```
+
+---
+
+#### 11.5 get_page vs page
+
+* **rooms\view.py**
+
+  ```python
+  from math import ceil
+  from django.shortcuts import render
+  from django.core.paginator import Paginator
+  from . import models
+  
+  
+  def all_rooms(request):
+      page = request.GET.get("page", 1)
+      room_list = models.Room.objects.all()
+      paginator = Paginator(room_list, 10, orphans=5)
+      rooms = paginator.page(int(page))
+      return render(request, "rooms/home.html", context={"page": rooms})
+  ```
+
+* **templates\rooms\home.html**
+
+```html
+{% extends "base.html" %}
+
+<!-- page_name -->
+{% block page_name %} Home {% endblock page_name %}
+
+<!-- room contents -->
+{% block content %}
+
+    {% for room in page.object_list %}
+    <h1>{{ room.name }} / {{ room.price }}</h1>
+    {% endfor %}
+
+    <h5>
+    {% if page.has_previous %}
+        <a href="?page={{page.previous_page_number}}">Previous</a>
+    {% endif %}
+    
+    Page {{page.number}} of {{page.paginator.num_pages}}
+
+    {% if page.has_next %}
+        <a href ="?page={{page.next_page_number}}">Next</a>
+    {% endif %}
+    </h5>
+
+{% endblock content %}
+```
+
+---
+
+#### 11.6 Handling Exceptions
+
+* **rooms\view.py**
+
+  ```python
+  from math import ceil
+  from django.shortcuts import render, redirect
+  from django.core.paginator import Paginator, EmptyPage
+  from . import models
+  
+  
+  def all_rooms(request):
+      page = request.GET.get("page", 1)
+      room_list = models.Room.objects.all()
+      paginator = Paginator(room_list, 10, orphans=5)
+      try:
+          rooms = paginator.page(int(page))
+          return render(request, "rooms/home.html", context={"page": rooms})
+      except EmptyPage:
+          return redirect("/")
+  ```
+
+---
+
+#### 11.7 Class Based Views
+
+* **rooms\view.py**
+
+  ```python
+  from django.views.generic import ListView
+  from . import models
+  
+  
+  class HomeView(ListView):
+  
+      """ HomeView Definition """
+  
+      model = models.Room
+      paginate_by = 10
+      paginate_orphans = 5
+      ordering = "created"
+  ```
+
+* **'rooms\home.html'을 'rooms\room_list.html'로 이름 변경**
+
+  ```html
+  {% extends "base.html" %}
+  
+  <!-- page_name -->
+  {% block page_name %} Home {% endblock page_name %}
+  
+  <!-- room contents -->
+  {% block content %}
+  
+      {% for room in object_list %}
+      <h1>{{ room.name }} / {{ room.price }}</h1>
+      {% endfor %}
+  
+      <h5>
+      {% if page_obj.has_previous %}
+          <a href="?page={{page_obj.previous_page_number}}">Previous</a>
+      {% endif %}
+      
+      Page {{page_obj.number}} of {{page_obj.paginator.num_pages}}
+  
+      {% if page_obj.has_next %}
+          <a href ="?page={{page_obj.next_page_number}}">Next</a>
+      {% endif %}
+      </h5>
+  
+  {% endblock content %}
+  ```
+
+---
+
+#### 11.8 Class Based Views part Two
+
+* **rooms\view.py**
+
+  ```python
+  from django.views.generic import ListView
+  from . import models
+  
+  
+  class HomeView(ListView):
+  
+      """ HomeView Definition """
+  
+      model = models.Room
+      paginate_by = 10
+      paginate_orphans = 5
+      ordering = "created"
+      context_object_name = "rooms"
+  ```
+
+*  **'rooms\room_list.html'**
+
+  ```html
+  {% extends "base.html" %}
+  
+  <!-- page_name -->
+  {% block page_name %} Home {% endblock page_name %}
+  
+  <!-- room contents -->
+  {% block content %}
+  
+      {% for room in rooms %}
+      <h1>{{ room.name }} / {{ room.price }}</h1>
+      {% endfor %}
+  
+      <h5>
+      {% if page_obj.has_previous %}
+          <a href="?page={{page_obj.previous_page_number}}">Previous</a>
+      {% endif %}
+      
+      Page {{page_obj.number}} of {{page_obj.paginator.num_pages}}
+  
+      {% if page_obj.has_next %}
+          <a href ="?page={{page_obj.next_page_number}}">Next</a>
+      {% endif %}
+      </h5>
+  
+  {% endblock content %}
+  ```
+
+---
+
