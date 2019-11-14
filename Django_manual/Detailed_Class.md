@@ -1100,7 +1100,7 @@ def all_rooms(request):
 
 #### 11.8 Class Based Views part Two
 
-* **rooms\view.py**
+* **templates\rooms\view.py**
 
   ```python
   from django.views.generic import ListView
@@ -1147,6 +1147,304 @@ def all_rooms(request):
   
   {% endblock content %}
   ```
+
+---
+
+#### 12.0 URLs and Arguments
+
+* **'rooms\views.py'**
+
+  ```python
+  from django.views.generic import ListView
+  from django.shortcuts import render
+  from . import models
+  
+  
+  class HomeView(ListView):
+  
+      """ HomeView Definition """
+  
+      model = models.Room
+      paginate_by = 10
+      paginate_orphans = 5
+      ordering = "created"
+      context_object_name = "rooms"
+  
+  
+  def room_detail(request, pk):
+      return render(request, "rooms/detail.html")
+  ```
+
+* **'rooms\urls.py'**
+
+```python
+from django.urls import path
+from . import views
+
+app_name = "rooms"
+
+urlpatterns = [path("<int:pk>", views.room_detail, name="detail")]
+```
+
+* **'config/urls.py'**
+
+```python
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+    path("", include("core.urls", namespace="core")),
+    path("rooms/", include("rooms.urls", namespace="rooms")),
+    path("admin/", admin.site.urls),
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+```
+
+* **'core/urls.py'**
+
+```python
+from django.urls import path
+from rooms import views as room_views
+
+app_name = "core"
+
+urlpatterns = [
+    path("", room_views.HomeView.as_view(), name="home"),
+```
+
+* **'templates\rooms\room_list.html'**
+
+```html
+{% extends "base.html" %}
+
+<!-- page_name -->
+{% block page_name %} Home {% endblock page_name %}
+
+<!-- room contents -->
+{% block content %}
+
+    {% for room in rooms %}
+        <h3>
+            <a href="{% url "rooms:detail" room.pk %}">
+                {{room.name}} / ${{room.price}}
+            </a>
+        </h3>
+    {% endfor %}
+
+    <h5>
+    {% if page_obj.has_previous %}
+        <a href="?page={{page_obj.previous_page_number}}">Previous</a>
+    {% endif %}
+    
+    Page {{page_obj.number}} of {{page_obj.paginator.num_pages}}
+
+    {% if page_obj.has_next %}
+        <a href ="?page={{page_obj.next_page_number}}">Next</a>
+    {% endif %}
+    </h5>
+
+{% endblock content %}
+```
+
+* **'templates\rooms\detail.html'**
+
+```html
+{% extends "base.html" %}
+
+
+{% block page_name %}
+    Home
+{% endblock page_name %}
+
+{% block content %}
+
+{% endblock %}
+```
+
+* **'templates\partials\header.html'**
+
+```html
+<header>
+<a href="{% url "core:home" %}">Nbnb</a>
+  <ul>
+      <li><a href="#">Login</a></li>
+  </ul>
+</header>
+```
+
+---
+
+#### 12.1 get_absolute_url
+
+* **'rooms\models.py'**
+
+  ```python
+  from django.db import models
+  from django.urls import reverse
+  from django_countries.fields import CountryField
+  from core import models as core_models
+  
+  # class Room에 def get_absolute_url(self) 추가
+  class Room(core_models.TimeStampedModel):
+      def get_absolute_url(self):
+          return reverse("rooms:detail", kwargs={"pk": self.pk})
+  ```
+
+---
+
+#### 12.2 room_detail FBV finished
+
+* **'rooms\views.py'**
+
+  ```python
+  from django.views.generic import ListView
+  from django.urls import reverse
+  from django.shortcuts import render, redirect
+  from . import models
+  
+  
+  class HomeView(ListView):
+  
+      """ HomeView Definition """
+  
+      model = models.Room
+      paginate_by = 10
+      paginate_orphans = 5
+      ordering = "created"
+      context_object_name = "rooms"
+  
+  
+  def room_detail(request, pk):
+      try:
+          room = models.Room.objects.get(pk=pk)
+          return render(request, "rooms/detail.html", context={"room": room})
+      except models.Room.DoesNotExist:
+          return redirect(reverse("core:home"))
+  ```
+
+* **'templates\rooms\detail.html'**
+
+```html
+{% extends "base.html" %}
+
+{% block page_name %}
+    Home
+{% endblock page_name %}
+
+{% block content %}
+<div>
+    <h1>{{room.name}}</h1>
+    <h3>{{room.description}}</h3>
+</div>
+<div>
+    <h2> By: {{room.host.username}}
+    {% if room.host.superhost  %}
+        (superhost)
+    {% endif %}
+    </h2>
+    <h3>AMENITIES</h3>
+    <ul>
+        {% for a in room.amenities.all  %}
+            <li>{{a}}</li>
+        {% endfor %}
+    </ul>
+    <h3>FACILITIES</h3>
+    <ul>
+        {% for f in room.facilities.all  %}
+            <li>{{f}}</li>
+        {% endfor %}
+    </ul>
+    <h3>HOUSE RULES</h3>
+    <ul>
+        {% for r in room.house_rules.all  %}
+            <li>{{r}}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% endblock %}
+```
+
+---
+
+#### 12.3 Http404()
+
+* 'templates' 폴더에 '404.html' 파일 생성 (사진 참고)
+
+<br>
+
+![image](https://user-images.githubusercontent.com/42408554/68838159-5aec0380-0701-11ea-8e65-863ad52cc2c8.png)
+
+<br>
+
+* **'rooms\views.py'**
+
+```python
+from django.views.generic import ListView
+from django.http import Http404
+from django.shortcuts import render
+from . import models
+
+
+class HomeView(ListView):
+
+    """ HomeView Definition """
+
+    model = models.Room
+    paginate_by = 10
+    paginate_orphans = 5
+    ordering = "created"
+    context_object_name = "rooms"
+
+
+def room_detail(request, pk):
+    try:
+        room = models.Room.objects.get(pk=pk)
+        return render(request, "rooms/detail.html", context={"room": room})
+    except models.Room.DoesNotExist:
+        raise Http404()
+```
+
+* **'config\settings.py'**
+
+```python
+DEBUG = False
+
+ALLOWED_HOSTS = "*"
+```
+
+---
+
+#### 12.4 Using DetailView CBV
+
+* **'rooms\views.py'**
+
+```python
+from django.views.generic import ListView, DetailView
+from . import models
+
+
+class HomeView(ListView):
+
+    """ HomeView Definition """
+
+    model = models.Room
+    paginate_by = 10
+    paginate_orphans = 5
+    ordering = "created"
+    context_object_name = "rooms"
+
+
+class RoomDetail(DetailView):
+
+    """ RoomDetail Definition"""
+
+    model = models.Room
+```
 
 ---
 
